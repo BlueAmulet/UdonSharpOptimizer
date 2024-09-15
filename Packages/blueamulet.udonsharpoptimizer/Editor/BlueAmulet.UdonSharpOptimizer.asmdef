@@ -1,0 +1,25 @@
+{
+    "name": "BlueAmulet.UdonSharpOptimizer",
+    "rootNamespace": "UdonSharpOptimizer",
+    "references": [
+        "VRC.SDK3",
+        "VRC.SDK3.Editor",
+        "VRC.SDKBase",
+        "VRC.SDKBase.Editor",
+        "UdonSharp.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "0Harmony.dll",
+        "Microsoft.CodeAnalysis.dll"
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
