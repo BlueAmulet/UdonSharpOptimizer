@@ -24,6 +24,10 @@ namespace UdonSharpOptimizer
         public bool EnableOPT04 = true;
         [Tooltip("Reduce amount of temporary variables")]
         public bool EnableVariableReduction = true;
+        [Tooltip("Map variables to same variable in different blocks")]
+        public bool EnableBlockReduction = true;
+        [Tooltip("Map Store+Load variables to same variable")]
+        public bool EnableStoreLoad = true;
         [Tooltip("Fix extra __this_ variables")]
         public bool EnableThisBugFix = true;
 

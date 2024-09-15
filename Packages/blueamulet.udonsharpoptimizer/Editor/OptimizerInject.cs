@@ -1,5 +1,5 @@
 /*
- * Unoffical UdonSharp Optimizer
+ * Unofficial UdonSharp Optimizer
  * Integrates the Optimizer with UdonSharp
  * Written by BlueAmulet
  */
@@ -25,7 +25,7 @@ namespace UdonSharpOptimizer
         private static readonly MethodInfo optimizerInject = AccessTools.Method(typeof(Optimizer), nameof(Optimizer.OptimizeProgram));
 
         private static bool patchSuccess;
-        public static bool PatchSuccess { get => patchSuccess; }
+        public static bool PatchSuccess => patchSuccess;
 
         static OptimizerInject()
         {
@@ -117,7 +117,7 @@ namespace UdonSharpOptimizer
             return instrs;
         }
 
-        public static int LocalIndex(CodeInstruction code)
+        private static int LocalIndex(CodeInstruction code)
         {
             if (code.opcode == OpCodes.Ldloc_0 || code.opcode == OpCodes.Stloc_0) return 0;
             else if (code.opcode == OpCodes.Ldloc_1 || code.opcode == OpCodes.Stloc_1) return 1;

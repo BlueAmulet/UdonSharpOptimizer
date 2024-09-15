@@ -26,3 +26,4 @@ UdonSharp makes a *LOT* of temporary variables. We detect places where we can re
 1.0.6 - Added tail call optimization  
 1.0.7 - Single .unitypackage installation  
 1.0.8 - Added basic Settings panel  
+1.0.9 - Moved TCO into first pass, added block based variable reduction  

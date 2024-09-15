@@ -1,7 +1,7 @@
 {
   "name": "blueamulet.udonsharpoptimizer",
   "displayName": "UdonSharpOptimizer",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "UdonSharp postprocessor to reduce instruction and variable counts",
   "gitDependencies": {},
   "vpmDependencies": {
