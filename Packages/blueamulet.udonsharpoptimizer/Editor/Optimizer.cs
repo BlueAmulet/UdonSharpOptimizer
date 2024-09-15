@@ -1,7 +1,7 @@
 ﻿/*
  * Unofficial UdonSharp Optimizer
  * The Optimizer.
- * Version 1.0.9
+ * Version 1.0.9b
  * Written by BlueAmulet
  */
 
@@ -458,7 +458,8 @@ namespace UdonSharpOptimizer
                 // Observe what block variables are in for later
                 if (settings.EnableBlockReduction)
                 {
-                    if (hasJump.Contains(instrs[i]))
+                    // If previous instruction is a jump but the next isn't in hasJump, it was a call to another udon function
+                    if (hasJump.Contains(instrs[i]) || (i > 0 && instrs[i - 1] is JumpInstruction))
                     {
                         currentBlock++;
                     }
@@ -519,7 +520,8 @@ namespace UdonSharpOptimizer
                 {
                     AssemblyInstruction instr = instrs[i];
                     int skip = 0;
-                    if (hasJump.Contains(instr))
+                    // If previous instruction is a jump but the next isn't in hasJump, it was a call to another udon function
+                    if (hasJump.Contains(instr) || (i > 0 && instrs[i - 1] is JumpInstruction))
                     {
                         blockCounters.Clear();
                     }
