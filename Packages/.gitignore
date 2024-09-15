@@ -5,3 +5,5 @@
 !blueamulet.udonsharpoptimizer
 !USOPatch.csproj
 !USOPatch.sln
+OptimizerSettings.asset
+OptimizerSettings.asset.meta

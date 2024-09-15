@@ -13,14 +13,19 @@ using UdonSharp.Compiler;
 using UnityEditor;
 using UnityEngine;
 
+#pragma warning disable IDE0090 // Use 'new(...)'
+
 namespace UdonSharpOptimizer
 {
     [InitializeOnLoad]
-    public static class OptimizerInject
+    internal static class OptimizerInject
     {
         private const string HARMONY_ID = "BlueAmulet.USOptimizer.Injector";
-        private static Harmony harmony;
+        private static readonly Harmony harmony;
         private static readonly MethodInfo optimizerInject = AccessTools.Method(typeof(Optimizer), nameof(Optimizer.OptimizeProgram));
+
+        private static bool patchSuccess;
+        public static bool PatchSuccess { get => patchSuccess; }
 
         static OptimizerInject()
         {
@@ -100,6 +105,7 @@ namespace UdonSharpOptimizer
                 }
             }
 
+            patchSuccess = patched || already;
             if (patched)
             {
                 Debug.Log("[Optimizer] Activated");

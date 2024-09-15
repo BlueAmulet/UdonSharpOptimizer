@@ -2,6 +2,11 @@
 [VCC Listing](https://blueamulet.github.io/UdonSharpOptimizer/)  
 Adds a hook to UdonSharp to process the generated Udon, reducing the number of instructions and making better use of temporary variables, as well as fixing a bug resulting in unnecessary variables. This results in udon programs that are faster and smaller.
 
+After any UdonSharp compile, a line will appear in the console similar to the following:  
+`[Optimizer] Removed # instructions, # variables, and # extra __this total`
+
+No permanent changes are made to the VRCSDK, all changes are made in memory and can be easily removed by removing this package.
+
 ## Optimizations
 There are currently 3 class of optimizations:
 ### COPY Removal:
@@ -20,3 +25,4 @@ UdonSharp makes a *LOT* of temporary variables. We detect places where we can re
 1.0.5 - Added ExternWrite+Copy check for variables, added missing jump checks  
 1.0.6 - Added tail call optimization  
 1.0.7 - Single .unitypackage installation  
+1.0.8 - Added basic Settings panel  

@@ -1,7 +1,7 @@
 ﻿/*
  * Unoffical UdonSharp Optimizer
  * The Optimizer.
- * Version 1.0.7
+ * Version 1.0.8
  * Written by BlueAmulet
  */
 
@@ -30,18 +30,27 @@ using UnityEngine;
 namespace UdonSharpOptimizer
 {
     [InitializeOnLoad]
-    public class Optimizer
+    internal class Optimizer
     {
         private const string HARMONY_ID = "BlueAmulet.USOptimizer.UdonSharpPatch";
+        private static readonly OptimizerSettings settings = OptimizerSettings.Instance;
 
         private static readonly AccessTools.FieldRef<object, List<AssemblyInstruction>> _instructions = AccessTools.FieldRefAccess<List<AssemblyInstruction>>(typeof(AssemblyModule), "_instructions");
         private static readonly AccessTools.FieldRef<object, List<MethodDebugInfo>> _methodDebugInfos = AccessTools.FieldRefAccess<List<MethodDebugInfo>>(typeof(AssemblyDebugInfo), "_methodDebugInfos");
         private static readonly AccessTools.FieldRef<object, ValueTable> _parentTable = AccessTools.FieldRefAccess<ValueTable>(typeof(Value), "_parentTable");
 
+        private static int patchFailures;
+        public static int PatchFailures { get => patchFailures; }
+
         // Various statistics
         private static int removedInstructions;
         private static int removedVariables;
         private static int removedThisTotal;
+
+        // For Settings panel
+        public static int RemovedInstructions { get => removedInstructions; }
+        public static int RemovedVariables { get => removedVariables; }
+        public static int RemovedThisTotal { get => removedThisTotal; }
 
         static Optimizer()
         {
@@ -56,6 +65,7 @@ namespace UdonSharpOptimizer
             using (new UdonSharpUtils.UdonSharpAssemblyLoadStripScope())
             {
                 harmony.UnpatchAll(HARMONY_ID);
+                patchFailures = 0;
 
                 // Add debug string to return address values for identification
                 MethodInfo target = AccessTools.Method(typeof(BoundUserMethodInvocationExpression), nameof(BoundUserMethodInvocationExpression.EmitValue));
@@ -121,6 +131,7 @@ namespace UdonSharpOptimizer
             if (!patched)
             {
                 Debug.LogWarning("[Optimizer] Failed to add debug string to return value");
+                patchFailures++;
                 return instrEnumerator;
             }
 
@@ -169,6 +180,7 @@ namespace UdonSharpOptimizer
 
             if (!patched)
             {
+                patchFailures++;
                 Debug.LogWarning("[Optimizer] Failed to add debug string to switch jump table");
                 return instrEnumerator;
             }
@@ -281,6 +293,11 @@ namespace UdonSharpOptimizer
 
         internal static void OptimizeProgram(EmitContext moduleEmitContext)
         {
+            if (!settings.EnableOptimizer)
+            {
+                return;
+            }
+
             AssemblyModule assemblyModule = moduleEmitContext.Module;
             List<AssemblyInstruction> instrs = new List<AssemblyInstruction>();
             List<JumpLabel> jumpLabels = new List<JumpLabel>();
@@ -350,6 +367,7 @@ namespace UdonSharpOptimizer
             for (int i = 0; i < instrs.Count; i++)
             {
                 // Remove Copy: Copy + JumpIf
+                if (settings.EnableOPT01)
                 {
                     if (instrs[i] is CopyInstruction cInst && i < instrs.Count - 1 && instrs[i + 1] is JumpIfFalseInstruction jifInst)
                     {
@@ -364,6 +382,7 @@ namespace UdonSharpOptimizer
                 }
 
                 // Remove Copy: Extern + Copy
+                if (settings.EnableOPT02)
                 {
                     if (instrs[i] is PushInstruction pInst && i < instrs.Count - 2 && IsExternWrite(instrs[i + 1]) && instrs[i + 2] is CopyInstruction cInst)
                     {
@@ -378,6 +397,7 @@ namespace UdonSharpOptimizer
                 }
 
                 // Remove Copy: Unread target (Cleans up Cow dirty)
+                if (settings.EnableOPT03)
                 {
                     if (instrs[i] is CopyInstruction cInst)
                     {
@@ -393,209 +413,219 @@ namespace UdonSharpOptimizer
             //Debug.Log($"Removed {removedInsts} instructions");
 
             // Pass 2: Tail call optimization
-            for (int i = 0; i < instrs.Count - 1; i++)
+            if (settings.EnableOPT04)
             {
-                // TODO: Properly verify this jump is to a method
-                if (instrs[i] is JumpInstruction jInst && instrs[i + 1] is RetInstruction rInst && !hasJump.Contains(rInst) && instrs[i - 1] is Comment cInst && cInst.Comment.StartsWith("Calling "))
+                for (int i = 0; i < instrs.Count - 1; i++)
                 {
-                    // Locate the corresponding push above
-                    int pushIdx = -1;
-                    for (int j = i - 1; j >= 0; j--)
+                    // TODO: Properly verify this jump is to a method
+                    if (instrs[i] is JumpInstruction jInst && instrs[i + 1] is RetInstruction rInst && !hasJump.Contains(rInst) && instrs[i - 1] is Comment cInst && cInst.Comment.StartsWith("Calling "))
                     {
-                        if (instrs[j] is PushInstruction pInst && pInst.PushValue.Flags == Value.ValueFlags.InternalGlobal && pInst.PushValue.DefaultValue is uint val && pInst.PushValue.UniqueID.StartsWith("__gintnl_RetAddress_") && val == rInst.InstructionAddress)
+                        // Locate the corresponding push above
+                        int pushIdx = -1;
+                        for (int j = i - 1; j >= 0; j--)
                         {
-                            pushIdx = j;
-                            break;
+                            if (instrs[j] is PushInstruction pInst && pInst.PushValue.Flags == Value.ValueFlags.InternalGlobal && pInst.PushValue.DefaultValue is uint val && pInst.PushValue.UniqueID.StartsWith("__gintnl_RetAddress_") && val == rInst.InstructionAddress)
+                            {
+                                pushIdx = j;
+                                break;
+                            }
+                            else if (hasJump.Contains(instrs[j]))
+                            {
+                                break;
+                            }
                         }
-                        else if (hasJump.Contains(instrs[j]))
+                        if (pushIdx != -1)
                         {
-                            break;
+                            PushInstruction pInst = (PushInstruction)instrs[pushIdx];
+                            instrs[pushIdx] = TransferInstr(new Comment($"OPT04: Tail call optimization, removed PUSH {pInst.PushValue.UniqueID}"), instrs[pushIdx], hasJump);
+                            instrs[i + 1] = TransferInstr(new Comment($"OPT04: Tail call optimization, removed RET {rInst.RetValRef.UniqueID}"), rInst, hasJump);
+                            removedInsts += 4; // PUSH & PUSH + COPY + JUMP_INDIRECT
                         }
-                    }
-                    if (pushIdx != -1)
-                    {
-                        PushInstruction pInst = (PushInstruction)instrs[pushIdx];
-                        instrs[pushIdx] = TransferInstr(new Comment($"OPT04: Tail call optimization, removed PUSH {pInst.PushValue.UniqueID}"), instrs[pushIdx], hasJump);
-                        instrs[i + 1] = TransferInstr(new Comment($"OPT04: Tail call optimization, removed RET {rInst.RetValRef.UniqueID}"), rInst, hasJump);
-                        removedInsts += 4; // PUSH & PUSH + COPY + JUMP_INDIRECT
                     }
                 }
             }
 
             // Pass 3: Attempt to reduce the number of temporary variables
-            HashSet<Value> notSkippable = new HashSet<Value>();
-            HashSet<CopyInstruction> ignoreCopyRead = new HashSet<CopyInstruction>();
-            for (int i = 0; i < instrs.Count; i++)
-            {
-                AssemblyInstruction instr = instrs[i];
-                if (instr is SyncTag sInst)
-                {
-                    notSkippable.Add(sInst.SyncedValue);
-                }
-                else if (instr is PushInstruction pInst)
-                {
-                    // Check for extern write + read
-                    if (!IsExternWrite(instrs[i + 1]) || hasJump.Contains(instrs[i + 1]))
-                    {
-                        notSkippable.Add(pInst.PushValue);
-                    }
-                    else if (instrs[i + 2] is PushInstruction pInst2)
-                    {
-                        if (pInst.PushValue == pInst2.PushValue && !hasJump.Contains(pInst2))
-                        {
-                            // Skip it
-                            i += 2;
-                        }
-                        else
-                        {
-                            notSkippable.Add(pInst.PushValue);
-                        }
-                    }
-                    else if (instrs[i + 2] is CopyInstruction cInst)
-                    {
-                        if (pInst.PushValue == cInst.SourceValue && !hasJump.Contains(cInst))
-                        {
-                            // Skip extern but ignore copy's read next loop
-                            i++;
-                            ignoreCopyRead.Add(cInst);
-                        }
-                        else
-                        {
-                            notSkippable.Add(pInst.PushValue);
-                        }
-                    }
-                    else
-                    {
-                        notSkippable.Add(pInst.PushValue);
-                    }
-                }
-                else if (instr is CopyInstruction cInst)
-                {
-                    if (!ignoreCopyRead.Contains(cInst))
-                    {
-                        notSkippable.Add(cInst.SourceValue);
-                    }
-                    if (instrs[i + 1] is PushInstruction pInst2)
-                    {
-                        if (cInst.TargetValue == pInst2.PushValue && !hasJump.Contains(pInst2))
-                        {
-                            // Skip
-                            i++;
-                        }
-                        else
-                        {
-                            notSkippable.Add(cInst.TargetValue);
-                        }
-                    }
-                    else if (instrs[i + 1] is CopyInstruction cInst2)
-                    {
-                        if (cInst.TargetValue == cInst2.SourceValue && !hasJump.Contains(cInst2))
-                        {
-                            // Skip the read of the next copy instruction
-                            ignoreCopyRead.Add(cInst2);
-                        }
-                        else
-                        {
-                            notSkippable.Add(cInst.TargetValue);
-                        }
-                    }
-                    else
-                    {
-                        notSkippable.Add(cInst.TargetValue);
-                    }
-                }
-                else if (instr is JumpIfFalseInstruction jifInst)
-                {
-                    notSkippable.Add(jifInst.ConditionValue);
-                }
-                else if (instr is JumpIndirectInstruction jiInst)
-                {
-                    notSkippable.Add(jiInst.JumpTargetValue);
-                }
-                else if (instr is RetInstruction rInst)
-                {
-                    notSkippable.Add(rInst.RetValRef);
-                }
-            }
-            
-            // TODO: What table is this stuff under?
-            HashSet<ValueTable> tables = new HashSet<ValueTable>();
-            foreach (Value value in notSkippable)
-            {
-                tables.Add(_parentTable(value));
-            }
-            tables.Add(assemblyModule.RootTable);
-            
-            // Remove all values that can be reduced to a single temporary
             int removedValues = 0;
             int removedThis = 0;
-            Dictionary<string, Value> rootThis = new Dictionary<string, Value>();
-            foreach (ValueTable table in tables)
+            Dictionary<string, Value> tempTable = new Dictionary<string, Value>();
+            if (settings.EnableVariableReduction)
             {
-                List<Value> values = table.Values;
-                foreach (Value value in values.ToArray())
+                HashSet<Value> notSkippable = new HashSet<Value>();
+                HashSet<CopyInstruction> ignoreCopyRead = new HashSet<CopyInstruction>();
+                for (int i = 0; i < instrs.Count; i++)
                 {
-                    if ((value.Flags & Value.ValueFlags.UdonThis) != 0)
+                    AssemblyInstruction instr = instrs[i];
+                    if (instr is SyncTag sInst)
                     {
-                        if (value.UniqueID.EndsWith("_0"))
+                        notSkippable.Add(sInst.SyncedValue);
+                    }
+                    else if (instr is PushInstruction pInst)
+                    {
+                        // Check for extern write + read
+                        if (!IsExternWrite(instrs[i + 1]) || hasJump.Contains(instrs[i + 1]))
                         {
-                            rootThis[value.UdonType.ExternSignature] = value;
-                            notSkippable.Add(value);
+                            notSkippable.Add(pInst.PushValue);
+                        }
+                        else if (instrs[i + 2] is PushInstruction pInst2)
+                        {
+                            if (pInst.PushValue == pInst2.PushValue && !hasJump.Contains(pInst2))
+                            {
+                                // Skip it
+                                i += 2;
+                            }
+                            else
+                            {
+                                notSkippable.Add(pInst.PushValue);
+                            }
+                        }
+                        else if (instrs[i + 2] is CopyInstruction cInst)
+                        {
+                            if (pInst.PushValue == cInst.SourceValue && !hasJump.Contains(cInst))
+                            {
+                                // Skip extern but ignore copy's read next loop
+                                i++;
+                                ignoreCopyRead.Add(cInst);
+                            }
+                            else
+                            {
+                                notSkippable.Add(pInst.PushValue);
+                            }
                         }
                         else
                         {
-                            notSkippable.Remove(value);
-                            values.Remove(value);
-                            removedThis++;
+                            notSkippable.Add(pInst.PushValue);
                         }
                     }
-                    else if (!IsPrivate(value))
+                    else if (instr is CopyInstruction cInst)
                     {
-                        notSkippable.Add(value);
+                        if (!ignoreCopyRead.Contains(cInst))
+                        {
+                            notSkippable.Add(cInst.SourceValue);
+                        }
+                        if (instrs[i + 1] is PushInstruction pInst2)
+                        {
+                            if (cInst.TargetValue == pInst2.PushValue && !hasJump.Contains(pInst2))
+                            {
+                                // Skip
+                                i++;
+                            }
+                            else
+                            {
+                                notSkippable.Add(cInst.TargetValue);
+                            }
+                        }
+                        else if (instrs[i + 1] is CopyInstruction cInst2)
+                        {
+                            if (cInst.TargetValue == cInst2.SourceValue && !hasJump.Contains(cInst2))
+                            {
+                                // Skip the read of the next copy instruction
+                                ignoreCopyRead.Add(cInst2);
+                            }
+                            else
+                            {
+                                notSkippable.Add(cInst.TargetValue);
+                            }
+                        }
+                        else
+                        {
+                            notSkippable.Add(cInst.TargetValue);
+                        }
                     }
-                    if (!notSkippable.Contains(value))
+                    else if (instr is JumpIfFalseInstruction jifInst)
                     {
-                        values.Remove(value);
-                        removedValues++;
+                        notSkippable.Add(jifInst.ConditionValue);
+                    }
+                    else if (instr is JumpIndirectInstruction jiInst)
+                    {
+                        notSkippable.Add(jiInst.JumpTargetValue);
+                    }
+                    else if (instr is RetInstruction rInst)
+                    {
+                        notSkippable.Add(rInst.RetValRef);
                     }
                 }
-            }
-            
-            // Reprocess all instructions
-            Dictionary<string, Value> tempTable = new Dictionary<string, Value>();
-            for (int i = 0; i < instrs.Count; i++)
-            {
-                AssemblyInstruction instr = instrs[i];
-                if (instr is PushInstruction pInst)
+
+                // TODO: What table is this stuff under?
+                HashSet<ValueTable> tables = new HashSet<ValueTable>();
+                foreach (Value value in notSkippable)
                 {
-                    if (!notSkippable.Contains(pInst.PushValue))
-                    {
-                        instrs[i] = TransferInstr(new PushInstruction(GetTempValue(pInst.PushValue, moduleEmitContext.TopTable, tempTable, rootThis)), pInst, hasJump);
-                    }
+                    tables.Add(_parentTable(value));
                 }
-                else if (instr is CopyInstruction cInst)
+                tables.Add(assemblyModule.RootTable);
+
+                // Remove all values that can be reduced to a single temporary
+                Dictionary<string, Value> rootThis = null;
+                if (settings.EnableThisBugFix)
                 {
-                    bool newInstr = false;
-                    Value sourceValue = cInst.SourceValue;
-                    Value targetValue = cInst.TargetValue;
-                    if (!notSkippable.Contains(sourceValue))
+                    rootThis = new Dictionary<string, Value>();
+                }
+                foreach (ValueTable table in tables)
+                {
+                    List<Value> values = table.Values;
+                    foreach (Value value in values.ToArray())
                     {
-                        sourceValue = GetTempValue(sourceValue, moduleEmitContext.TopTable, tempTable, rootThis);
-                        newInstr = true;
-                    }
-                    if (!notSkippable.Contains(targetValue))
-                    {
-                        targetValue = GetTempValue(targetValue, moduleEmitContext.TopTable, tempTable, rootThis);
-                        newInstr = true;
-                    }
-                    if (newInstr)
-                    {
-                        instrs[i] = TransferInstr(new CopyInstruction(sourceValue, targetValue), cInst, hasJump);
+                        if (settings.EnableThisBugFix && (value.Flags & Value.ValueFlags.UdonThis) != 0)
+                        {
+                            if (value.UniqueID.EndsWith("_0"))
+                            {
+                                rootThis[value.UdonType.ExternSignature] = value;
+                                notSkippable.Add(value);
+                            }
+                            else
+                            {
+                                notSkippable.Remove(value);
+                                values.Remove(value);
+                                removedThis++;
+                            }
+                        }
+                        else if (!IsPrivate(value))
+                        {
+                            notSkippable.Add(value);
+                        }
+                        if (!notSkippable.Contains(value))
+                        {
+                            values.Remove(value);
+                            removedValues++;
+                        }
                     }
                 }
+
+                // Reprocess all instructions
+                for (int i = 0; i < instrs.Count; i++)
+                {
+                    AssemblyInstruction instr = instrs[i];
+                    if (instr is PushInstruction pInst)
+                    {
+                        if (!notSkippable.Contains(pInst.PushValue))
+                        {
+                            instrs[i] = TransferInstr(new PushInstruction(GetTempValue(pInst.PushValue, moduleEmitContext.TopTable, tempTable, rootThis)), pInst, hasJump);
+                        }
+                    }
+                    else if (instr is CopyInstruction cInst)
+                    {
+                        bool newInstr = false;
+                        Value sourceValue = cInst.SourceValue;
+                        Value targetValue = cInst.TargetValue;
+                        if (!notSkippable.Contains(sourceValue))
+                        {
+                            sourceValue = GetTempValue(sourceValue, moduleEmitContext.TopTable, tempTable, rootThis);
+                            newInstr = true;
+                        }
+                        if (!notSkippable.Contains(targetValue))
+                        {
+                            targetValue = GetTempValue(targetValue, moduleEmitContext.TopTable, tempTable, rootThis);
+                            newInstr = true;
+                        }
+                        if (newInstr)
+                        {
+                            instrs[i] = TransferInstr(new CopyInstruction(sourceValue, targetValue), cInst, hasJump);
+                        }
+                    }
+                }
+                removedValues -= tempTable.Count; // Add back in the additional variables created
+                removedValues -= removedThis; // Not supposed to be in this counter
             }
-            removedValues -= tempTable.Count; // Add back in the additional variables created
-            removedValues -= removedThis; // Not supposed to be in this counter
 
             if (removedInsts > 0 || removedValues > 0 || removedThis > 0 || tempTable.Count != 0)
             {
@@ -735,7 +765,7 @@ namespace UdonSharpOptimizer
         private static Value GetTempValue(Value value, ValueTable valueTable, Dictionary<string, Value> tempTable, Dictionary<string, Value> rootThis)
         {
             string udonType = value.UdonType.ExternSignature;
-            if ((value.Flags & Value.ValueFlags.UdonThis) != 0)
+            if (rootThis != null && (value.Flags & Value.ValueFlags.UdonThis) != 0)
             {
                 return rootThis[udonType];
             }
