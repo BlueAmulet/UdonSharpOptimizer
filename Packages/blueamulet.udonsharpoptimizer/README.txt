@@ -19,3 +19,4 @@ Changelog:
 1.0.8  - Added basic Settings panel
 1.0.9  - Moved TCO into first pass, added block based variable reduction
 1.0.9b - Fixed udon functions destroying variables in other functions
+1.0.10 - Code refactor, added additional instruction and variable optimizations

@@ -1,21 +1,26 @@
 using UnityEditor;
 using UnityEngine;
 
+#pragma warning disable IDE0017 // Simplify object initialization
+#pragma warning disable IDE0090 // Use 'new(...)'
+
 namespace UdonSharpOptimizer
 {
     internal class OptimizerEditorWindow : EditorWindow
     {
         OptimizerSettings _settings;
         SerializedObject _settingsSO;
-        SerializedProperty _optimizerEnabled;
-        SerializedProperty _optimization1;
-        SerializedProperty _optimization2;
-        SerializedProperty _optimization3;
-        SerializedProperty _optimization4;
-        SerializedProperty _optimizationVar;
-        SerializedProperty _optimizationBR;
-        SerializedProperty _optimizationSL;
-        SerializedProperty _optimizationThis;
+        SerializedProperty _optEnabled;
+        SerializedProperty _optCopyAndLoad;
+        SerializedProperty _optCopyAndTest;
+        SerializedProperty _optStoreAndCopy;
+        SerializedProperty _optDoubleCopy;
+        SerializedProperty _optCleanUnreadCopy;
+        SerializedProperty _optTCO;
+        SerializedProperty _optVariables;
+        SerializedProperty _optBlockReduction;
+        SerializedProperty _optStoreLoad;
+        SerializedProperty _optThis;
 
         [MenuItem("Tools/UdonSharp Optimizer")]
         public static void ShowWindow()
@@ -27,15 +32,17 @@ namespace UdonSharpOptimizer
         {
             _settings = OptimizerSettings.Instance;
             _settingsSO = new SerializedObject(_settings);
-            _optimizerEnabled = _settingsSO.FindProperty(nameof(OptimizerSettings.EnableOptimizer));
-            _optimization1 = _settingsSO.FindProperty(nameof(OptimizerSettings.EnableOPT01));
-            _optimization2 = _settingsSO.FindProperty(nameof(OptimizerSettings.EnableOPT02));
-            _optimization3 = _settingsSO.FindProperty(nameof(OptimizerSettings.EnableOPT03));
-            _optimization4 = _settingsSO.FindProperty(nameof(OptimizerSettings.EnableOPT04));
-            _optimizationVar = _settingsSO.FindProperty(nameof(OptimizerSettings.EnableVariableReduction));
-            _optimizationBR = _settingsSO.FindProperty(nameof(OptimizerSettings.EnableBlockReduction));
-            _optimizationSL = _settingsSO.FindProperty(nameof(OptimizerSettings.EnableStoreLoad));
-            _optimizationThis = _settingsSO.FindProperty(nameof(OptimizerSettings.EnableThisBugFix));
+            _optEnabled = _settingsSO.FindProperty(nameof(OptimizerSettings.EnableOptimizer));
+            _optCopyAndLoad = _settingsSO.FindProperty(nameof(OptimizerSettings.CopyAndLoad));
+            _optCopyAndTest = _settingsSO.FindProperty(nameof(OptimizerSettings.CopyAndTest));
+            _optStoreAndCopy = _settingsSO.FindProperty(nameof(OptimizerSettings.StoreAndCopy));
+            _optDoubleCopy = _settingsSO.FindProperty(nameof(OptimizerSettings.DoubleCopy));
+            _optCleanUnreadCopy = _settingsSO.FindProperty(nameof(OptimizerSettings.CleanUnreadCopy));
+            _optTCO = _settingsSO.FindProperty(nameof(OptimizerSettings.EnableTCO));
+            _optVariables = _settingsSO.FindProperty(nameof(OptimizerSettings.EnableVariableReduction));
+            _optBlockReduction = _settingsSO.FindProperty(nameof(OptimizerSettings.EnableBlockReduction));
+            _optStoreLoad = _settingsSO.FindProperty(nameof(OptimizerSettings.EnableStoreLoad));
+            _optThis = _settingsSO.FindProperty(nameof(OptimizerSettings.EnableThisBugFix));
         }
 
         public void OnGUI()
@@ -52,7 +59,7 @@ namespace UdonSharpOptimizer
             // Optimizer status
             EditorGUILayout.LabelField("Status:", EditorStyles.boldLabel);
             AlignedText("Optimizer:", $"<color={(OptimizerInject.PatchSuccess ? "lime>Activated" : "orange><b>Failed to inject</b>")}</color>", richStyle);
-            int patchFailures = Optimizer.PatchFailures;
+            int patchFailures = OptimizerInject.PatchFailures;
             EditorGUILayout.BeginHorizontal();
             EditorGUILayout.PrefixLabel("Patches:");
             if (patchFailures == 0)
@@ -69,21 +76,23 @@ namespace UdonSharpOptimizer
             // Settings
             EditorGUILayout.LabelField("Settings:", EditorStyles.boldLabel);
             EditorGUI.BeginChangeCheck();
-            EditorGUILayout.PropertyField(_optimizerEnabled, false);
+            EditorGUILayout.PropertyField(_optEnabled, false);
             EditorGUILayout.Space();
             using (new EditorGUI.DisabledScope(!_settings.EnableOptimizer))
             {
-                EditorGUILayout.PropertyField(_optimization1, false);
-                EditorGUILayout.PropertyField(_optimization2, false);
-                EditorGUILayout.PropertyField(_optimization3, false);
-                EditorGUILayout.PropertyField(_optimization4, false);
+                EditorGUILayout.PropertyField(_optCopyAndLoad, false);
+                EditorGUILayout.PropertyField(_optCopyAndTest, false);
+                EditorGUILayout.PropertyField(_optStoreAndCopy, false);
+                EditorGUILayout.PropertyField(_optDoubleCopy, false);
+                EditorGUILayout.PropertyField(_optCleanUnreadCopy, false);
+                EditorGUILayout.PropertyField(_optTCO, false);
                 EditorGUILayout.Space();
-                EditorGUILayout.PropertyField(_optimizationVar, false);
+                EditorGUILayout.PropertyField(_optVariables, false);
                 using (new EditorGUI.DisabledScope(!_settings.EnableVariableReduction))
                 {
-                    EditorGUILayout.PropertyField(_optimizationBR, false);
-                    EditorGUILayout.PropertyField(_optimizationSL, false);
-                    EditorGUILayout.PropertyField(_optimizationThis, false);
+                    EditorGUILayout.PropertyField(_optBlockReduction, false);
+                    EditorGUILayout.PropertyField(_optStoreLoad, false);
+                    EditorGUILayout.PropertyField(_optThis, false);
                 }
             }
             if (EditorGUI.EndChangeCheck())

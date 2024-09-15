@@ -14,14 +14,18 @@ namespace UdonSharpOptimizer
         [Tooltip("Enable or disable the optimizer entirely")]
         public bool EnableOptimizer = true;
 
+        [Tooltip("Targets COPY+PUSH")]
+        public bool CopyAndLoad = true;
         [Tooltip("Targets COPY+JUMP_IF_FALSE")]
-        public bool EnableOPT01 = true;
+        public bool CopyAndTest = true;
         [Tooltip("Targets EXTERN+COPY")]
-        public bool EnableOPT02 = true;
+        public bool StoreAndCopy = true;
+        [Tooltip("Targets COPY+COPY")]
+        public bool DoubleCopy = true;
         [Tooltip("Targets Unread COPY (Cow dirty)")]
-        public bool EnableOPT03 = true;
+        public bool CleanUnreadCopy = true;
         [Tooltip("Performs Tail Call Optimization")]
-        public bool EnableOPT04 = true;
+        public bool EnableTCO = true;
         [Tooltip("Reduce amount of temporary variables")]
         public bool EnableVariableReduction = true;
         [Tooltip("Map variables to same variable in different blocks")]
