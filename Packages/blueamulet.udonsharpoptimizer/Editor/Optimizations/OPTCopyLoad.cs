@@ -13,8 +13,8 @@ namespace UdonSharpOptimizer.Optimizations
 
         public void ProcessInstruction(Optimizer optimizer, List<AssemblyInstruction> instrs, int i)
         {
-            // Remove Copy: Copy + JumpIf
-            if (instrs[i] is CopyInstruction cInst && instrs[i + 1] is PushInstruction pInst)
+            // Remove Copy: Copy + Push
+            if (instrs[i] is CopyInstruction cInst && i < instrs.Count - 1 && instrs[i + 1] is PushInstruction pInst)
             {
                 if (Optimizer.IsPrivate(cInst.TargetValue) && cInst.TargetValue.UniqueID == pInst.PushValue.UniqueID && !optimizer.HasJump(pInst) && !optimizer.ReadScan(n => n == i + 1, cInst.TargetValue))
                 {
