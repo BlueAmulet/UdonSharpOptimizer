@@ -5,7 +5,7 @@
   "description": "UdonSharp postprocessor to reduce instruction and variable counts",
   "gitDependencies": {},
   "vpmDependencies": {
-    "com.vrchat.worlds": "3.7.0"
+    "com.vrchat.worlds": "^3.4.2"
   },
   "author": {
     "name": "BlueAmulet"
