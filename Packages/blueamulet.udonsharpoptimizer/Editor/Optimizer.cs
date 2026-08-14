@@ -1,7 +1,7 @@
 ﻿/*
  * Unofficial UdonSharp Optimizer
  * The Optimizer.
- * Version 1.0.12
+ * Version 1.0.13
  * Written by BlueAmulet
  */
 
@@ -31,6 +31,11 @@ namespace UdonSharpOptimizer
         private static readonly AccessTools.FieldRef<object, List<MethodDebugInfo>> _methodDebugInfos = AccessTools.FieldRefAccess<List<MethodDebugInfo>>(typeof(AssemblyDebugInfo), "_methodDebugInfos");
         private static readonly AccessTools.FieldRef<object, ValueTable> _parentTable = AccessTools.FieldRefAccess<ValueTable>(typeof(Value), "_parentTable");
         private static readonly AccessTools.FieldRef<object, List<ValueTable>> _childTables = AccessTools.FieldRefAccess<List<ValueTable>>(typeof(ValueTable), "_childTables");
+
+        private static readonly ISet<string> _possibleReentrant = new HashSet<string> {
+            "VRCUdonCommonInterfacesIUdonEventReceiver.__SendCustomEvent__SystemString__SystemVoid",
+            "VRCUdonCommonInterfacesIUdonEventReceiver.__SetProgramVariable__SystemString_SystemObject__SystemVoid"
+        };
 
         // Various statistics
         private static int _removedInstructions;
@@ -286,7 +291,9 @@ namespace UdonSharpOptimizer
                 {
                     AssemblyInstruction instr = _instrs[i];
                     // If previous instruction is a jump but the next isn't in hasJump, it was a call to another udon function
-                    if (_hasJump.Contains(instr) || (i > 0 && _instrs[i - 1] is JumpInstruction))
+                    if (_hasJump.Contains(instr)
+                        || (i > 0 && _instrs[i - 1] is JumpInstruction)
+                        || (instr is ExternInstruction extInst && _possibleReentrant.Contains(extInst.Extern.ExternSignature)))
                     {
                         currentBlock++;
                     }
@@ -349,7 +356,9 @@ namespace UdonSharpOptimizer
                     int skip = 0;
                     AssemblyInstruction instr = _instrs[i];
                     // If previous instruction is a jump but the next isn't in hasJump, it was a call to another udon function
-                    if (_hasJump.Contains(instr) || (i > 0 && _instrs[i - 1] is JumpInstruction))
+                    if (_hasJump.Contains(instr)
+                        || (i > 0 && _instrs[i - 1] is JumpInstruction)
+                        || (instr is ExternInstruction extInst && _possibleReentrant.Contains(extInst.Extern.ExternSignature)))
                     {
                         blockCounters.Clear();
                     }
