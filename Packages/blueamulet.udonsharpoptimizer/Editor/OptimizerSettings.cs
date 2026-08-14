@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Unofficial UdonSharp Optimizer
  * Optimizer Settings
  * Written by BlueAmulet

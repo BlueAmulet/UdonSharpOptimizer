@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Unofficial UdonSharp Optimizer
  * Integrates the Optimizer with UdonSharp
  * Written by BlueAmulet

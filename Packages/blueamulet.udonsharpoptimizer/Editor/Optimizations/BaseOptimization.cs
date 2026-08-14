@@ -24,7 +24,7 @@ namespace UdonSharpOptimizer.Optimizations
 
         protected void CountRemoved(Optimizer optimizer, int count)
         {
-            optimizer.removedInsts += count;
+            optimizer.removedInstrs += count;
             removedInstructions += count;
         }
     }

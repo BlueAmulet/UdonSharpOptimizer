@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using UdonSharp.Compiler.Assembly;
 using UdonSharp.Compiler.Assembly.Instructions;
 using UdonSharp.Compiler.Emit;
@@ -15,7 +16,7 @@ namespace UdonSharpOptimizer.Optimizations
         {
             // Tail call optimization
             // TODO: Properly verify this jump is to a method
-            if (instrs[i] is JumpInstruction && instrs[i - 1] is Comment cInst && cInst.Comment.StartsWith("Calling "))
+            if (instrs[i] is JumpInstruction && instrs[i - 1] is Comment cInst && cInst.Comment.StartsWith("Calling ", StringComparison.Ordinal))
             {
                 // Try to locate a return after the call
                 RetInstruction rInst = null;
@@ -39,7 +40,7 @@ namespace UdonSharpOptimizer.Optimizations
                 uint afterCall = instrs[i + 1].InstructionAddress;
                 for (int j = i - 1; j >= 0; j--)
                 {
-                    if (instrs[j] is PushInstruction pInst && pInst.PushValue.Flags == Value.ValueFlags.InternalGlobal && pInst.PushValue.DefaultValue is uint val && pInst.PushValue.UniqueID.StartsWith("__gintnl_RetAddress_") && val == afterCall)
+                    if (instrs[j] is PushInstruction pInst && pInst.PushValue.Flags == Value.ValueFlags.InternalGlobal && pInst.PushValue.DefaultValue is uint val && pInst.PushValue.UniqueID.StartsWith("__gintnl_RetAddress_", StringComparison.Ordinal) && val == afterCall)
                     {
                         pushIdx = j;
                         break;
