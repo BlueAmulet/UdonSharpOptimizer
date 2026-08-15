@@ -9,6 +9,8 @@ namespace UdonSharpOptimizer.Optimizations
 
         void ResetStats();
 
+        void SaveStats();
+
         void OnGUI();
 
         void ProcessInstruction(Optimizer optimizer, List<AssemblyInstruction> instrs, int i);

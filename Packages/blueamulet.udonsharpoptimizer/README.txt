@@ -26,3 +26,4 @@ Changelog:
 1.0.11 - Per optimization statistics, Unity 2019 fix, expanded TCO optimization
 1.0.12 - Simplify jump chains, further expaned TCO optimization
 1.0.13 - Fixed cross program reentrancy destroying variables in other functions
+1.0.14 - Applied fix to SendCustomNetworkEvent, minor QOL improvements

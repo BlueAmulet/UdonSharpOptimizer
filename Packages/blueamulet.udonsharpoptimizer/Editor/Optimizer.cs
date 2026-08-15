@@ -1,7 +1,7 @@
 ﻿/*
  * Unofficial UdonSharp Optimizer
  * The Optimizer.
- * Version 1.0.13
+ * Version 1.0.14
  * Written by BlueAmulet
  */
 
@@ -32,15 +32,20 @@ namespace UdonSharpOptimizer
         private static readonly AccessTools.FieldRef<object, ValueTable> _parentTable = AccessTools.FieldRefAccess<ValueTable>(typeof(Value), "_parentTable");
         private static readonly AccessTools.FieldRef<object, List<ValueTable>> _childTables = AccessTools.FieldRefAccess<List<ValueTable>>(typeof(ValueTable), "_childTables");
 
-        private static readonly ISet<string> _possibleReentrant = new HashSet<string> {
-            "VRCUdonCommonInterfacesIUdonEventReceiver.__SendCustomEvent__SystemString__SystemVoid",
-            "VRCUdonCommonInterfacesIUdonEventReceiver.__SetProgramVariable__SystemString_SystemObject__SystemVoid"
+        private static readonly string[] _possibleReentrant = {
+            ".__SendCustomEvent__",
+            ".__SetProgramVariable__",
+            ".__SendCustomNetworkEvent__"
         };
 
         // Various statistics
-        private static int _removedInstructions;
-        private static int _removedVariables;
-        private static int _removedThisTotal;
+        private static readonly string InstructionsStatsKey = OptimizerStats.KeyFor("Instructions");
+        private static readonly string VariablesStatsKey = OptimizerStats.KeyFor("Variables");
+        private static readonly string ThisTotalStatsKey = OptimizerStats.KeyFor("ThisTotal");
+
+        private static int _removedInstructions = OptimizerStats.Load(InstructionsStatsKey);
+        private static int _removedVariables = OptimizerStats.Load(VariablesStatsKey);
+        private static int _removedThisTotal = OptimizerStats.Load(ThisTotalStatsKey);
 
         // For Settings panel
         public static int RemovedInstructions => _removedInstructions;
@@ -58,6 +63,11 @@ namespace UdonSharpOptimizer
             new OPTDirectJump(),
             new OPTTailCall(),
         };
+
+        // Required to remove beforefieldinit flag and force consistent static initialization
+        static Optimizer()
+        {
+        }
 
         // Per program state
         private readonly EmitContext _moduleEmitContext;
@@ -88,6 +98,17 @@ namespace UdonSharpOptimizer
             Debug.Log($"[Optimizer] Removed {_removedInstructions} instructions, {_removedVariables} variables, and {_removedThisTotal} extra __this total");
         }
 
+        internal static void SaveStats()
+        {
+            OptimizerStats.Save(InstructionsStatsKey, _removedInstructions);
+            OptimizerStats.Save(VariablesStatsKey, _removedVariables);
+            OptimizerStats.Save(ThisTotalStatsKey, _removedThisTotal);
+            foreach (IBaseOptimization optimization in _optimizations)
+            {
+                optimization.SaveStats();
+            }
+        }
+
         internal static void OnGUI()
         {
             foreach (IBaseOptimization optimization in _optimizations)
@@ -109,6 +130,28 @@ namespace UdonSharpOptimizer
                 return !extInst.Extern.ExternSignature.EndsWith("__SystemVoid", StringComparison.Ordinal);
             }
             return instr is ExternGetInstruction;
+        }
+
+        private bool IsBlockBoundary(int i, AssemblyInstruction instr)
+        {
+            // If previous instruction is a jump but the next isn't in hasJump, it was a call to another udon function
+            if (_hasJump.Contains(instr) || (i > 0 && _instrs[i - 1] is JumpInstruction))
+            {
+                return true;
+            }
+            // Check if this instruction calls to another udon behaviour
+            if (instr is ExternInstruction extInst)
+            {
+                string signature = extInst.Extern.ExternSignature;
+                foreach (string funcName in _possibleReentrant)
+                {
+                    if (signature.Contains(funcName))
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         internal static bool IsPrivate(Value value)
@@ -290,10 +333,7 @@ namespace UdonSharpOptimizer
                 if (Settings.EnableBlockReduction)
                 {
                     AssemblyInstruction instr = _instrs[i];
-                    // If previous instruction is a jump but the next isn't in hasJump, it was a call to another udon function
-                    if (_hasJump.Contains(instr)
-                        || (i > 0 && _instrs[i - 1] is JumpInstruction)
-                        || (instr is ExternInstruction extInst && _possibleReentrant.Contains(extInst.Extern.ExternSignature)))
+                    if (IsBlockBoundary(i, instr))
                     {
                         currentBlock++;
                     }
@@ -355,10 +395,7 @@ namespace UdonSharpOptimizer
                 {
                     int skip = 0;
                     AssemblyInstruction instr = _instrs[i];
-                    // If previous instruction is a jump but the next isn't in hasJump, it was a call to another udon function
-                    if (_hasJump.Contains(instr)
-                        || (i > 0 && _instrs[i - 1] is JumpInstruction)
-                        || (instr is ExternInstruction extInst && _possibleReentrant.Contains(extInst.Extern.ExternSignature)))
+                    if (IsBlockBoundary(i, instr))
                     {
                         blockCounters.Clear();
                     }

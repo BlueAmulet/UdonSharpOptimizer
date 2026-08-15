@@ -36,8 +36,9 @@ namespace UdonSharpOptimizer
 
         static OptimizerInject()
         {
-            // Load settings here so we don't try to do it off the main thread in Optimizer
-            _ = OptimizerSettings.Instance;
+            // Initialize settings and statistics here so it happens on the main Unity thread
+            _ = Optimizer.RemovedInstructions;
+            AssemblyReloadEvents.beforeAssemblyReload += Optimizer.SaveStats;
             AssemblyReloadEvents.afterAssemblyReload += RunPostAssemblyBuildRefresh;
         }
 

@@ -80,7 +80,10 @@ namespace UdonSharpOptimizer
             if (_statusOpen)
             {
                 EditorGUI.indentLevel++;
-                AlignedText("Optimizer:", $"<color={(OptimizerInject.PatchSuccess ? "lime>Activated" : "orange><b>Failed to inject</b>")}</color>", richLabel);
+                string statusText = OptimizerInject.PatchSuccess
+                    ? (_settings.EnableOptimizer ? "lime>Activated" : ">Inactive")
+                    : "orange><b>Failed to inject</b>";
+                AlignedText("Optimizer:", $"<color={statusText}</color>", richLabel);
                 int patchFailures = OptimizerInject.PatchFailures;
                 EditorGUILayout.BeginHorizontal();
                 {

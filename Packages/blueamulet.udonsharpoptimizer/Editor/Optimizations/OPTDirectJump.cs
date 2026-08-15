@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Threading;
 using UdonSharp.Compiler.Assembly;
 using UdonSharp.Compiler.Assembly.Instructions;
 using UnityEditor;
@@ -7,13 +8,24 @@ namespace UdonSharpOptimizer.Optimizations
 {
     internal class OPTDirectJump : IBaseOptimization
     {
+        private readonly string _statsKey = OptimizerStats.KeyFor(typeof(OPTDirectJump));
         private int patchedInstructions;
+
+        public OPTDirectJump()
+        {
+            patchedInstructions = OptimizerStats.Load(_statsKey);
+        }
 
         public bool Enabled => OptimizerSettings.Instance.DirectJump;
 
         public void ResetStats()
         {
             patchedInstructions = 0;
+        }
+
+        public void SaveStats()
+        {
+            OptimizerStats.Save(_statsKey, patchedInstructions);
         }
 
         public void OnGUI()
@@ -39,7 +51,7 @@ namespace UdonSharpOptimizer.Optimizations
                     Comment comment = new Comment($"OPTDirectJump: Skipped {chain} jumps");
                     comment.InstructionAddress = instrs[i].InstructionAddress;
                     instrs.Insert(i, comment);
-                    patchedInstructions += chain;
+                    Interlocked.Add(ref patchedInstructions, chain);
                 }
             }
             else if (instrs[i] is JumpIfFalseInstruction jifInst)
@@ -57,7 +69,7 @@ namespace UdonSharpOptimizer.Optimizations
                     Comment comment = new Comment($"OPTDirectJump: Skipped {chain} jumps");
                     comment.InstructionAddress = instrs[i].InstructionAddress;
                     instrs.Insert(i, comment);
-                    patchedInstructions += chain;
+                    Interlocked.Add(ref patchedInstructions, chain);
                 }
             }
         }
