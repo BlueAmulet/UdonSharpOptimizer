@@ -1,6 +1,5 @@
 ﻿/*
  * Unofficial UdonSharp Optimizer
- * Optimizer Settings
  * Written by BlueAmulet
  */
 
@@ -15,7 +14,8 @@ using UnityEngine;
 
 namespace UdonSharpOptimizer
 {
-    internal class OptimizerSettings : ScriptableObject
+    // Optimizer Settings
+    internal sealed class OptimizerSettings : ScriptableObject
     {
         [Tooltip("Enable or disable the optimizer entirely")]
         public bool EnableOptimizer = true;

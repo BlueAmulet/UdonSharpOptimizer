@@ -1,4 +1,9 @@
-﻿using System.Collections.Generic;
+﻿/*
+ * Unofficial UdonSharp Optimizer
+ * Written by BlueAmulet
+ */
+
+using System.Collections.Generic;
 using System.Threading;
 using UdonSharp.Compiler.Assembly;
 using UdonSharp.Compiler.Assembly.Instructions;
@@ -6,7 +11,7 @@ using UnityEditor;
 
 namespace UdonSharpOptimizer.Optimizations
 {
-    internal class OPTDirectJump : IBaseOptimization
+    internal sealed class OPTDirectJump : IInstructionPass
     {
         private readonly string _statsKey = OptimizerStats.KeyFor(typeof(OPTDirectJump));
         private int patchedInstructions;
@@ -33,21 +38,21 @@ namespace UdonSharpOptimizer.Optimizations
             OptimizerEditorWindow.AlignedText("Direct Jump", patchedInstructions.ToString(), EditorStyles.label);
         }
 
-        public void ProcessInstruction(Optimizer optimizer, List<AssemblyInstruction> instrs, int i)
+        public void ProcessInstruction(OptimizerContext context, IList<AssemblyInstruction> instrs, int i)
         {
             // Simplify jump chains
             if (instrs[i] is JumpInstruction jInst)
             {
                 JumpLabel innerJump = jInst.JumpTarget;
                 int chain = 0;
-                while (optimizer.GetJumpTarget(innerJump.Address) is JumpInstruction nextJump)
+                while (context.InstrMap[innerJump.Address] is JumpInstruction nextJump)
                 {
                     innerJump = nextJump.JumpTarget;
                     chain++;
                 }
                 if (innerJump.Address != jInst.JumpTarget.Address)
                 {
-                    instrs[i] = optimizer.TransferInstr(new JumpInstruction(innerJump), jInst);
+                    instrs[i] = context.TransferInstr(new JumpInstruction(innerJump), jInst);
                     Comment comment = new Comment($"OPTDirectJump: Skipped {chain} jumps");
                     comment.InstructionAddress = instrs[i].InstructionAddress;
                     instrs.Insert(i, comment);
@@ -58,14 +63,14 @@ namespace UdonSharpOptimizer.Optimizations
             {
                 JumpLabel innerJump = jifInst.JumpTarget;
                 int chain = 0;
-                while (optimizer.GetJumpTarget(innerJump.Address) is JumpInstruction nextJump)
+                while (context.InstrMap[innerJump.Address] is JumpInstruction nextJump)
                 {
                     innerJump = nextJump.JumpTarget;
                     chain++;
                 }
                 if (innerJump.Address != jifInst.JumpTarget.Address)
                 {
-                    instrs[i] = optimizer.TransferInstr(new JumpIfFalseInstruction(innerJump, jifInst.ConditionValue), jifInst);
+                    instrs[i] = context.TransferInstr(new JumpIfFalseInstruction(innerJump, jifInst.ConditionValue), jifInst);
                     Comment comment = new Comment($"OPTDirectJump: Skipped {chain} jumps");
                     comment.InstructionAddress = instrs[i].InstructionAddress;
                     instrs.Insert(i, comment);

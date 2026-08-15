@@ -1,6 +1,5 @@
 ﻿/*
  * Unofficial UdonSharp Optimizer
- * Helper to persist statistics across code reload
  * Written by BlueAmulet
  */
 
@@ -9,6 +8,7 @@ using UnityEditor;
 
 namespace UdonSharpOptimizer
 {
+    // Helper to persist statistics across code reload
     internal static class OptimizerStats
     {
         private const string KeyPrefix = "UdonSharpOptimizer.Stats.";

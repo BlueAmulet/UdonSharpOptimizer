@@ -1,18 +1,15 @@
 ﻿/*
  * Unofficial UdonSharp Optimizer
- * Settings and Statistics window
  * Written by BlueAmulet
  */
 
 using UnityEditor;
 using UnityEngine;
 
-#pragma warning disable IDE0017 // Simplify object initialization
-#pragma warning disable IDE0090 // Use 'new(...)'
-
 namespace UdonSharpOptimizer
 {
-    internal class OptimizerEditorWindow : EditorWindow
+    // Settings and Statistics window
+    internal sealed class OptimizerEditorWindow : EditorWindow
     {
         OptimizerSettings _settings;
         SerializedObject _settingsSO;
@@ -80,6 +77,7 @@ namespace UdonSharpOptimizer
             if (_statusOpen)
             {
                 EditorGUI.indentLevel++;
+                AlignedText("Version:", Optimizer.Version, richLabel);
                 string statusText = OptimizerInject.PatchSuccess
                     ? (_settings.EnableOptimizer ? "lime>Activated" : ">Inactive")
                     : "orange><b>Failed to inject</b>";
@@ -88,14 +86,9 @@ namespace UdonSharpOptimizer
                 EditorGUILayout.BeginHorizontal();
                 {
                     EditorGUILayout.PrefixLabel("Patches:");
-                    if (patchFailures == 0)
-                    {
-                        EditorGUILayout.LabelField($"<color=lime>{patchFailures} patch failures</color>", richLabel);
-                    }
-                    else
-                    {
-                        EditorGUILayout.LabelField($"<color=orange><b>{patchFailures} patch failures</b></color>", richLabel);
-                    }
+                    EditorGUILayout.LabelField(patchFailures == 0
+                        ? $"<color=lime>{patchFailures} patch failures</color>"
+                        : $"<color=orange><b>{patchFailures} patch failures</b></color>", richLabel);
                 }
                 EditorGUILayout.EndHorizontal();
                 EditorGUI.indentLevel--;

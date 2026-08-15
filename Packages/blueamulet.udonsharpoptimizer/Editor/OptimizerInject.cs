@@ -1,6 +1,5 @@
 ﻿/*
  * Unofficial UdonSharp Optimizer
- * Integrates the Optimizer with UdonSharp
  * Written by BlueAmulet
  */
 
@@ -18,10 +17,9 @@ using UdonSharp.Compiler.Symbols;
 using UnityEditor;
 using UnityEngine;
 
-#pragma warning disable IDE0090 // Use 'new(...)'
-
 namespace UdonSharpOptimizer
 {
+    // Integrates the Optimizer with UdonSharp
     [InitializeOnLoad]
     internal static class OptimizerInject
     {
@@ -76,9 +74,19 @@ namespace UdonSharpOptimizer
                 // Add hook to compiler to reset optimizer's global counters
                 MethodInfo emitProgram = AccessTools.Method(typeof(UdonSharpCompilerV1), "EmitAllPrograms");
                 MethodInfo optPre = AccessTools.Method(typeof(Optimizer), nameof(Optimizer.ResetGlobalCounters));
-                MethodInfo optPost = AccessTools.Method(typeof(Optimizer), nameof(Optimizer.LogGlobalCounters));
+                MethodInfo optPost = AccessTools.Method(typeof(OptimizerInject), nameof(LogGlobalCounters));
                 Harmony.Patch(emitProgram, new HarmonyMethod(optPre), new HarmonyMethod(optPost));
             }
+        }
+
+        private static void OptimizeHook(EmitContext moduleEmitContext)
+        {
+            Optimizer.OptimizeProgram(moduleEmitContext);
+        }
+
+        private static void LogGlobalCounters()
+        {
+            Debug.Log($"[Optimizer] Removed {Optimizer.RemovedInstructions} instructions, {Optimizer.RemovedVariables} variables, and {Optimizer.RemovedThisTotal} extra __this total");
         }
 
         private static IEnumerable<CodeInstruction> TranspilerEmit(IEnumerable<CodeInstruction> instructions)
@@ -131,7 +139,8 @@ namespace UdonSharpOptimizer
                     {
                         if (instrs[i + 1].opcode == OpCodes.Ldarg_0)
                         {
-                            instrs.InsertRange(i + 1, new List<CodeInstruction>() {
+                            instrs.InsertRange(i + 1, new List<CodeInstruction>
+                            {
                                 new CodeInstruction(OpCodes.Ldloc, emitContextLocal),
                                 new CodeInstruction(OpCodes.Call, optimizerInject)
                             });
@@ -162,12 +171,6 @@ namespace UdonSharpOptimizer
             return instrs;
         }
 
-        private static void OptimizeHook(EmitContext moduleEmitContext)
-        {
-            Optimizer optimizer = new Optimizer(moduleEmitContext);
-            optimizer.OptimizeProgram();
-        }
-
         private static IEnumerable<CodeInstruction> ReturnValueTranspiler(IEnumerable<CodeInstruction> instrEnumerator)
         {
             List<CodeInstruction> instr = new List<CodeInstruction>(instrEnumerator);
@@ -193,7 +196,7 @@ namespace UdonSharpOptimizer
                         instr.Insert(i, new CodeInstruction(OpCodes.Callvirt, AccessTools.Method(typeof(EmitContext), "get_TopTable")));
 
                         // Inject debug string for easy optimizer analysis
-                        instr.InsertRange(instr.IndexOf(inst5), new List<CodeInstruction>()
+                        instr.InsertRange(instr.IndexOf(inst5), new List<CodeInstruction>
                         {
                             new CodeInstruction(OpCodes.Ldstr, "RetAddress"),
                             new CodeInstruction(OpCodes.Callvirt, AccessTools.Method(typeof(ValueTable), "CreateGlobalInternalValue")),
@@ -243,7 +246,7 @@ namespace UdonSharpOptimizer
                         instr.Insert(i, new CodeInstruction(OpCodes.Callvirt, AccessTools.Method(typeof(EmitContext), "get_TopTable")));
 
                         // Inject debug string for easy optimizer analysis
-                        instr.InsertRange(instr.IndexOf(inst6), new List<CodeInstruction>()
+                        instr.InsertRange(instr.IndexOf(inst6), new List<CodeInstruction>
                         {
                             new CodeInstruction(OpCodes.Ldstr, "SwitchTable"),
                             new CodeInstruction(OpCodes.Callvirt, AccessTools.Method(typeof(ValueTable), "CreateGlobalInternalValue")),

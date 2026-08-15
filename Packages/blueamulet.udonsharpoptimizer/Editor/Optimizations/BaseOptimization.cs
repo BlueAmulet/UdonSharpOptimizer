@@ -1,11 +1,17 @@
-﻿using System.Collections.Generic;
+﻿/*
+ * Unofficial UdonSharp Optimizer
+ * Written by BlueAmulet
+ */
+
+using System.Collections.Generic;
 using System.Threading;
 using UdonSharp.Compiler.Assembly;
+using UdonSharp.Compiler.Assembly.Instructions;
 using UnityEditor;
 
 namespace UdonSharpOptimizer.Optimizations
 {
-    abstract class BaseOptimization : IBaseOptimization
+    internal abstract class BaseOptimization : IInstructionPass
     {
         private readonly string _statsKey;
         private int removedInstructions;
@@ -18,7 +24,7 @@ namespace UdonSharpOptimizer.Optimizations
             removedInstructions = OptimizerStats.Load(_statsKey);
         }
 
-        public abstract void ProcessInstruction(Optimizer optimizer, List<AssemblyInstruction> instrs, int i);
+        public abstract void ProcessInstruction(OptimizerContext context, IList<AssemblyInstruction> instrs, int i);
 
         public void ResetStats()
         {
@@ -35,10 +41,15 @@ namespace UdonSharpOptimizer.Optimizations
             OptimizerEditorWindow.AlignedText(GUILabel, removedInstructions.ToString(), EditorStyles.label);
         }
 
-        protected void CountRemoved(Optimizer optimizer, int count)
+        protected void CountRemoved(OptimizerContext context, int count)
         {
-            optimizer.removedInstrs += count;
+            context.RemovedInstrs += count;
             Interlocked.Add(ref removedInstructions, count);
+        }
+
+        internal static Comment CopyComment(string code, CopyInstruction cInst)
+        {
+            return new Comment($"{code}: Removed {cInst.SourceValue.UniqueID} => {cInst.TargetValue.UniqueID} copy");
         }
     }
 }

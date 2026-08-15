@@ -19,6 +19,9 @@ Any call to another Udon function followed by a return, can have its setup and t
 UdonSharp makes a *LOT* of temporary variables. We detect places where we can reuse existing temporary variables instead of creating new ones. This does not make the program faster but does make the program smaller.
 
 ## Changelog
+<details>
+<summary>Click to expand</summary>
+
 1.0.0  - Initial 2022 version  
 1.0.1  - 2024 Update  
 1.0.2  - Fixed switch statements  
@@ -35,3 +38,5 @@ UdonSharp makes a *LOT* of temporary variables. We detect places where we can re
 1.0.12 - Simplify jump chains, further expaned TCO optimization  
 1.0.13 - Fixed cross program reentrancy destroying variables in other functions  
 1.0.14 - Applied fix to SendCustomNetworkEvent, minor QOL improvements  
+1.1.0  - Refactored Optimizer into individual passes and cleaned up state  
+</details>
