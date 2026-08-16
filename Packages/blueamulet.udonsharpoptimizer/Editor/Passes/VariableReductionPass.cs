@@ -41,9 +41,11 @@ namespace UdonSharpOptimizer.Passes
             Dictionary<string, uint> valueLast = new Dictionary<string, uint>();
             RecordBlockUsage(context, valueBlock, valueLast);
 
+            // Determine store-load variables
+            ISet<Value> notSkippable = GatherNotSkippable(context);
+
             // Remap all temporary variables that are in a single block
-            ISet<Value> notSkippable = new HashSet<Value>();
-            ReduceInstructionScope(context, valueBlock, valueLast, notSkippable);
+            RemapBlockTemporaries(context, valueBlock, valueLast, notSkippable);
 
             // Remove variables from the tables marked skippable
             // Determine which variable is the root __this per type
@@ -118,28 +120,18 @@ namespace UdonSharpOptimizer.Passes
             }
         }
 
-        private static void ReduceInstructionScope(OptimizerContext context, IReadOnlyDictionary<string, ISet<uint>> valueBlock, IReadOnlyDictionary<string, uint> valueLast, ISet<Value> notSkippable)
+        private static ISet<Value> GatherNotSkippable(OptimizerContext context)
         {
+            ISet<Value> notSkippable = new HashSet<Value>();
             ISet<CopyInstruction> ignoreCopyRead = new HashSet<CopyInstruction>();
-            IDictionary<string, ISet<uint>> blockCounters = new Dictionary<string, ISet<uint>>();
-            IDictionary<string, Value> tempMap = new Dictionary<string, Value>();
-
             IList<AssemblyInstruction> instrs = context.Instrs;
             for (int i = 0; i < instrs.Count; i++)
             {
                 int skip = 0;
                 AssemblyInstruction instr = instrs[i];
-                if (IsBlockBoundary(context, i, instr))
-                {
-                    blockCounters.Clear();
-                }
                 if (instr is SyncTag sInst)
                 {
                     notSkippable.Add(sInst.SyncedValue);
-                    if (BlockScopeRemap(context, sInst.SyncedValue, sInst.InstructionAddress, valueBlock, valueLast, notSkippable, blockCounters, tempMap, out Value outValue))
-                    {
-                        instrs[i] = context.TransferInstr(new SyncTag(outValue, sInst.SyncMode), sInst);
-                    }
                 }
                 else if (instr is PushInstruction pInst)
                 {
@@ -184,11 +176,6 @@ namespace UdonSharpOptimizer.Passes
                     {
                         notSkippable.Add(pInst.PushValue);
                     }
-                    if (BlockScopeRemap(context, pInst.PushValue, pInst.InstructionAddress, valueBlock, valueLast, notSkippable, blockCounters, tempMap, out Value outValue))
-                    {
-                        instrs[i] = context.TransferInstr(new PushInstruction(outValue), pInst);
-                        skip = 0;
-                    }
                 }
                 else if (instr is CopyInstruction cInst)
                 {
@@ -232,6 +219,57 @@ namespace UdonSharpOptimizer.Passes
                         notSkippable.Add(cInst.SourceValue);
                         notSkippable.Add(cInst.TargetValue);
                     }
+                }
+                else if (instr is JumpIfFalseInstruction jifInst)
+                {
+                    notSkippable.Add(jifInst.ConditionValue);
+                }
+                else if (instr is JumpIndirectInstruction jiInst)
+                {
+                    notSkippable.Add(jiInst.JumpTargetValue);
+                }
+                else if (instr is RetInstruction rInst)
+                {
+                    notSkippable.Add(rInst.RetValRef);
+                }
+                i += skip;
+            }
+            return notSkippable;
+        }
+
+        public static void RemapBlockTemporaries(OptimizerContext context, IReadOnlyDictionary<string, ISet<uint>> valueBlock, IReadOnlyDictionary<string, uint> valueLast, ISet<Value> notSkippable)
+        {
+            IDictionary<string, ISet<uint>> blockCounters = new Dictionary<string, ISet<uint>>();
+            IDictionary<string, Value> tempMap = new Dictionary<string, Value>();
+
+            IList<AssemblyInstruction> instrs = context.Instrs;
+            for (int i = 0; i < instrs.Count; i++)
+            {
+                AssemblyInstruction instr = instrs[i];
+                if (IsBlockBoundary(context, i, instr))
+                {
+                    blockCounters.Clear();
+                }
+
+                if (instr is SyncTag sInst)
+                {
+                    if (BlockScopeRemap(context, sInst.SyncedValue, sInst.InstructionAddress, valueBlock, valueLast, notSkippable, blockCounters, tempMap, out Value outValue))
+                    {
+                        instrs[i] = context.TransferInstr(new SyncTag(outValue, sInst.SyncMode), sInst);
+                    }
+                }
+                else if (instr is PushInstruction pInst)
+                {
+                    if (true)
+                    {
+                    }
+                    if (BlockScopeRemap(context, pInst.PushValue, pInst.InstructionAddress, valueBlock, valueLast, notSkippable, blockCounters, tempMap, out Value outValue))
+                    {
+                        instrs[i] = context.TransferInstr(new PushInstruction(outValue), pInst);
+                    }
+                }
+                else if (instr is CopyInstruction cInst)
+                {
                     bool needNewCopy = false;
                     Value copySource = cInst.SourceValue;
                     Value copyTarget = cInst.TargetValue;
@@ -248,12 +286,10 @@ namespace UdonSharpOptimizer.Passes
                     if (needNewCopy)
                     {
                         instrs[i] = context.TransferInstr(new CopyInstruction(copySource, copyTarget), cInst);
-                        skip = 0;
                     }
                 }
                 else if (instr is JumpIfFalseInstruction jifInst)
                 {
-                    notSkippable.Add(jifInst.ConditionValue);
                     if (BlockScopeRemap(context, jifInst.ConditionValue, jifInst.InstructionAddress, valueBlock, valueLast, notSkippable, blockCounters, tempMap, out Value outValue))
                     {
                         instrs[i] = context.TransferInstr(new JumpIfFalseInstruction(jifInst.JumpTarget, outValue), jifInst);
@@ -261,17 +297,11 @@ namespace UdonSharpOptimizer.Passes
                 }
                 else if (instr is JumpIndirectInstruction jiInst)
                 {
-                    notSkippable.Add(jiInst.JumpTargetValue);
                     if (BlockScopeRemap(context, jiInst.JumpTargetValue, jiInst.InstructionAddress, valueBlock, valueLast, notSkippable, blockCounters, tempMap, out Value outValue))
                     {
                         instrs[i] = context.TransferInstr(new JumpIndirectInstruction(outValue), jiInst);
                     }
                 }
-                else if (instr is RetInstruction rInst)
-                {
-                    notSkippable.Add(rInst.RetValRef);
-                }
-                i += skip;
             }
         }
 
