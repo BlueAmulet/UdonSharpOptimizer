@@ -18,7 +18,7 @@ namespace UdonSharpOptimizer
     // Handles running all optimization passes
     internal static class Optimizer
     {
-        public static readonly string Version = "1.1.0";
+        public static readonly string Version = "1.1.1";
 
         private static readonly OptimizerSettings Settings = OptimizerSettings.Instance;
 

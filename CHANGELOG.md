@@ -1,3 +1,16 @@
+## 1.1.1
+### Features
+* Expanded store load detection to consider JumpIfFalse instructions
+
+### Bug Fixes
+* Variable reduction counter now reports the correct difference:
+  * UdonSharp emits multiple Values referring to the same variable
+  * The Optimizer would incorrectly count each instance of the variable
+  * The Optimizer would also incorrectly count variables as removed if one copy still remained
+
+### Changes
+* Untangled the store load detection from the block remapping pass
+
 ## 1.1.0
 ### Changes
 * Consolidated Optimizer state into a single context class
