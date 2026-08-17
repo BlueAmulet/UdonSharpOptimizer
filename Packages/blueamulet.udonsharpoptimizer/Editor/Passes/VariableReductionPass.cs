@@ -138,15 +138,14 @@ namespace UdonSharpOptimizer.Passes
                     if (Settings.EnableStoreLoad)
                     {
                         // Check for extern write + read
-                        if (!Optimizer.IsExternWrite(instrs[i + 1]) || context.HasJumpSet.Contains(instrs[i + 1]))
+                        if (!Optimizer.IsExternWrite(instrs[i + 1]) || context.HasJumpSet.Contains(instrs[i + 1]) || context.HasJumpSet.Contains(instrs[i + 2]))
                         {
                             notSkippable.Add(pInst.PushValue);
                         }
                         else if (instrs[i + 2] is PushInstruction pInst2)
                         {
-                            if (pInst.PushValue == pInst2.PushValue && !context.HasJumpSet.Contains(pInst2))
+                            if (pInst.PushValue == pInst2.PushValue)
                             {
-                                // Skip it
                                 skip = 2;
                             }
                             else
@@ -156,7 +155,7 @@ namespace UdonSharpOptimizer.Passes
                         }
                         else if (instrs[i + 2] is CopyInstruction cInst)
                         {
-                            if (pInst.PushValue == cInst.SourceValue && !context.HasJumpSet.Contains(cInst))
+                            if (pInst.PushValue == cInst.SourceValue)
                             {
                                 // Skip extern but ignore copy's read next loop
                                 skip = 1;
@@ -165,6 +164,13 @@ namespace UdonSharpOptimizer.Passes
                             else
                             {
                                 notSkippable.Add(pInst.PushValue);
+                            }
+                        }
+                        else if (instrs[i + 2] is JumpIfFalseInstruction jifInst)
+                        {
+                            if (pInst.PushValue == jifInst.ConditionValue)
+                            {
+                                skip = 2;
                             }
                         }
                         else
@@ -185,11 +191,14 @@ namespace UdonSharpOptimizer.Passes
                         {
                             notSkippable.Add(cInst.SourceValue);
                         }
-                        if (instrs[i + 1] is PushInstruction pInst2)
+                        if (context.HasJumpSet.Contains(instrs[i + 1]))
                         {
-                            if (cInst.TargetValue == pInst2.PushValue && !context.HasJumpSet.Contains(pInst2))
+                            notSkippable.Add(cInst.TargetValue);
+                        }
+                        else if (instrs[i + 1] is PushInstruction pInst2)
+                        {
+                            if (cInst.TargetValue == pInst2.PushValue)
                             {
-                                // Skip
                                 skip = 1;
                             }
                             else
@@ -199,10 +208,21 @@ namespace UdonSharpOptimizer.Passes
                         }
                         else if (instrs[i + 1] is CopyInstruction cInst2)
                         {
-                            if (cInst.TargetValue == cInst2.SourceValue && !context.HasJumpSet.Contains(cInst2))
+                            if (cInst.TargetValue == cInst2.SourceValue)
                             {
                                 // Skip the read of the next copy instruction
                                 ignoreCopyRead.Add(cInst2);
+                            }
+                            else
+                            {
+                                notSkippable.Add(cInst.TargetValue);
+                            }
+                        }
+                        else if (instrs[i + 1] is JumpIfFalseInstruction jifInst)
+                        {
+                            if (cInst.TargetValue == jifInst.ConditionValue)
+                            {
+                                skip = 1;
                             }
                             else
                             {
@@ -475,6 +495,13 @@ namespace UdonSharpOptimizer.Passes
                     if (newInstr)
                     {
                         instrs[i] = context.TransferInstr(new CopyInstruction(sourceValue, targetValue), cInst);
+                    }
+                }
+                else if (instr is JumpIfFalseInstruction jifInst)
+                {
+                    if (!notSkippable.Contains(jifInst.ConditionValue))
+                    {
+                        instrs[i] = context.TransferInstr(new JumpIfFalseInstruction(jifInst.JumpTarget, GetTempValue(context, jifInst.ConditionValue, rootThis)), jifInst);
                     }
                 }
             }
