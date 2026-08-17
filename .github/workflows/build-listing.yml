@@ -62,6 +62,31 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Add changelogUrl to older releases
+      - name: Backfill missing changelogUrl entries
+        run: |
+          node -e '
+            const fs = require("fs");
+            const path = process.env.LISTING_PATH;
+            const repo = process.env.GITHUB_REPOSITORY;
+            const listing = JSON.parse(fs.readFileSync(path, "utf8"));
+
+            for (const pkgName of Object.keys(listing.packages || {})) {
+              const versions = listing.packages[pkgName].versions || {};
+              for (const version of Object.keys(versions)) {
+                const entry = versions[version];
+                if (!entry.changelogUrl) {
+                  const anchor = version.replace(/\./g, "");
+                  entry.changelogUrl = `https://github.com/${repo}/blob/main/CHANGELOG.md#${anchor}`;
+                }
+              }
+            }
+
+            fs.writeFileSync(path, JSON.stringify(listing));
+          '
+        env:
+          LISTING_PATH: ${{ github.workspace }}/${{ env.listPublishDirectory }}/index.json
+
       # Prepare for GitHub Pages deployment
       - name: Setup Pages
         uses: actions/configure-pages@v5

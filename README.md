@@ -19,24 +19,4 @@ Any call to another Udon function followed by a return, can have its setup and t
 UdonSharp makes a *LOT* of temporary variables. We detect places where we can reuse existing temporary variables instead of creating new ones. This does not make the program faster but does make the program smaller.
 
 ## Changelog
-<details>
-<summary>Click to expand</summary>
-
-1.0.0  - Initial 2022 version  
-1.0.1  - 2024 Update  
-1.0.2  - Fixed switch statements  
-1.0.3  - Reduced number of variables  
-1.0.4  - __this_ fix for even less variables  
-1.0.5  - Added ExternWrite+Copy check for variables, added missing jump checks  
-1.0.6  - Added tail call optimization  
-1.0.7  - Single .unitypackage installation  
-1.0.8  - Added basic Settings panel  
-1.0.9  - Moved TCO into first pass, added block based variable reduction  
-1.0.9b - Fixed udon functions destroying variables in other functions  
-1.0.10 - Code refactor, added additional instruction and variable optimizations  
-1.0.11 - Per optimization statistics, Unity 2019 fix, expanded TCO optimization  
-1.0.12 - Simplify jump chains, further expaned TCO optimization  
-1.0.13 - Fixed cross program reentrancy destroying variables in other functions  
-1.0.14 - Applied fix to SendCustomNetworkEvent, minor QOL improvements  
-1.1.0  - Refactored Optimizer into individual passes and cleaned up state  
-</details>
+[View project Changelog](/CHANGELOG.md)
