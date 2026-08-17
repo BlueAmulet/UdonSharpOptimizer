@@ -430,6 +430,8 @@ namespace UdonSharpOptimizer.Passes
             {
                 rootThis = new Dictionary<string, Value>();
             }
+            ISet<string> removedVariables = new HashSet<string>();
+            ISet<string> remainingVariables = new HashSet<string>();
             foreach (ValueTable table in tables)
             {
                 List<Value> values = table.Values;
@@ -456,10 +458,16 @@ namespace UdonSharpOptimizer.Passes
                     if (!notSkippable.Contains(value))
                     {
                         values.Remove(value);
-                        context.RemovedValues++;
+                        removedVariables.Add(value.UniqueID);
+                    }
+                    else
+                    {
+                        remainingVariables.Add(value.UniqueID);
                     }
                 }
             }
+            removedVariables.ExceptWith(remainingVariables);
+            context.RemovedValues += removedVariables.Count;
             return rootThis;
         }
 
